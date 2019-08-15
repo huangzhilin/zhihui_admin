@@ -4,6 +4,7 @@
 
 <script>
   export default{
+    name:'FullCreeen',
     data() {
     	return{
     		n:0, //全屏进入退出控制标志

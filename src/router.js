@@ -10,9 +10,30 @@ export default new Router({
     {
       path: '/',
       component: () => import('./components/Layout.vue'),
-      meta:{
-        title:'首页'
-      }
+      children:[
+        {
+          path: '',
+          component: () => import('./views/Index.vue'),
+          meta:{
+            title:'欢迎页'
+          }
+        },
+        {
+          path: '/user',
+          component: () => import('./views/Home.vue'),
+          meta:{
+            title:'用户列表'
+          }
+        },
+        {
+          path: '/user1',
+          component: () => import('./views/Home.vue'),
+          meta:{
+            title:'用户列表'
+          }
+        },
+      ]
+      
     },
     {
       path: '/login',

@@ -39,7 +39,9 @@
 
 <script>
   export default{
+    name:'Home',
     data() {
+      
       return {
         options: [
           {value: '选项1',label: '黄金糕1'},
