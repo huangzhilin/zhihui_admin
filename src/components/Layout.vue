@@ -58,7 +58,7 @@
 				</el-col>
 
 				<el-col :span="6" style='text-align:right'>
-					<full-creeen></full-creeen>
+					<full-screen></full-screen>
 					<el-dropdown>
 						<span class="el-dropdown-link">黄志林<i class="el-icon-arrow-down el-icon--right"></i></span>
 						<el-dropdown-menu slot="dropdown">
@@ -71,20 +71,23 @@
 	    </el-header>
 
 		<div id='scroll-menu'>
-			<div id='scroll-menu-prev'><i class="el-icon-arrow-left"></i></div>
-			<div class="horizontal-container">
-				<div class="scroll-wrapper" ref="scroll"> 
-					<div class="scroll-content" ref="content">
-						<div class="scroll-item" v-for="(item,index) in navTab" :key="index">
-							<el-tag :closable='item.closable' @click='clickElTag(item.index)' @close='delElTag(index)' :type='currentNavTab==item.index?"":"plain"'>{{item.label}}</el-tag>
-						</div>
+			<div id='scroll-menu-prev' @click='handleScroll(250)'><i class="el-icon-arrow-left"></i></div>
+			<div class="scroll-wrapper" ref="scrollWrapper">
+				<div class="scroll-container" :style="{left: scrollLeft + 'px'}" ref="scrollContainer">
+					<div  class="scroll-item" v-for='(item,index) in navTab' @click='clickElTag(item.index)' ref="scrollItem">
+						<el-tag size="medium" :closable='item.closable' @close='delElTag(index)' :type='currentNavTab==item.index?"":"plain"'>{{item.label}}</el-tag>
 					</div>
 				</div>
 			</div>
-			<div id='scroll-menu-next'><i class="el-icon-arrow-right"></i></div>
+			<div id='scroll-menu-next' @click='handleScroll(-250)'><i class="el-icon-arrow-right"></i></div>
+			<el-dropdown @command="closeElTag">
+				<i class="el-icon-close"></i>
+				<el-dropdown-menu slot="dropdown">
+					<el-dropdown-item command="all">关闭所有</el-dropdown-item>
+					<el-dropdown-item command="other" divided>关闭其他</el-dropdown-item>
+				</el-dropdown-menu>
+			</el-dropdown>
 		</div>
-
-
 
 		<el-main>
 			<keep-alive>
@@ -100,16 +103,17 @@
 
 
 <script>
-  import BScroll from 'better-scroll'
-  import FullCreeen from "../components/FullCreeen";
+  import FullScreen from "../components/FullScreen";
 
   export default {
   	name:'Layout',
-  	components: {FullCreeen},
+  	components: {FullScreen},
     data() {
       return {
+      	//动态渲染组件 配置
       	currentTabComponent:'',
       	currentCacheKey:'',
+
       	//面包屑配置数据
       	breadCrumb:[],
 
@@ -136,38 +140,26 @@
 		],
 
 		//标签页配置数据
+		scrollLeft:0,
 		currentNavTab:'0',
-		navTab:[]
+		navTab:[],
       }
     },
-    computed:{
-	    key(){
-	        return Math.random();
-	    }
-	},
+
     mounted() {
       this.init()
-    },
-    beforeDestroy() {
-      this.bs.destroy()
     },
     methods:{
     	//初始化
 		init() {
+			//面包屑
 			this.breadCrumb = [this.menusList[0].title];
 
 			this.currentCacheKey = 123;
 
-			this.navTab = [{cacheKey:123,label:this.menusList[0].title,index:'0',closable:false,path:this.menusList[0].path}];
+			this.navTab = [{cacheKey:this.currentCacheKey,label:this.menusList[0].title,index:'0',closable:false,path:this.menusList[0].path}];
 
 			this.currentTabComponent = this.currentTabComponent = resolve => require(['../views/'+this.menusList[0].path], resolve);
-
-
-
-			this.bs = new BScroll(this.$refs.scroll, {
-				scrollX: true,
-				probeType: 3 
-			})
 		},
 		
     	//点击 标签页 标签触发
@@ -175,6 +167,27 @@
 			this.getInfo(index)
 			this.changeNavTab(index)
 		},
+
+		//关闭 标签页 标签触发
+		closeElTag:function(command){
+			switch (command){
+				//关闭所有标签页
+				case 'all':
+					this.navTab = [this.navTab[0]];
+					if(this.currentNavTab !== '0') {
+						this.getInfo(this.navTab[0].index)
+						this.changeNavTab(this.navTab[0].index);
+					}
+					break;
+				//关闭其他标签页
+				case 'other':
+					this.navTab = this.navTab.filter(tab => tab.index === this.currentNavTab || tab.index==='0');
+					break;
+				default:
+					break;
+			}
+			this.scrollLeft = 0;
+      	},
 
 		//删除 标签页 标签触发
 		delElTag:function(index){
@@ -188,8 +201,7 @@
 	              let nextTab = tabs[ind + 1] || tabs[ind - 1];
 	              if (nextTab) {
 	                currentTabName = nextTab.index;
-	                this.currentCacheKey = nextTab.cacheKey
-	                this.currentTabComponent = resolve => require(['../views/'+nextTab.path], resolve)
+	                this.changeNavTab(currentTabName);
 	              }
 	            }
 	          });
@@ -197,6 +209,25 @@
 	        this.getInfo(currentTabName);
         	this.currentNavTab = currentTabName;
 	        this.navTab = tabs.filter(tab => tab.index !== targetName);
+		},
+
+		//标签页 前进或后退
+		handleScroll:function(offset) {
+			const outerWidth = this.$refs.scrollWrapper.offsetWidth
+			const bodyWidth = this.$refs.scrollContainer.offsetWidth
+			if (offset > 0) {
+				this.scrollLeft = Math.min(0, this.scrollLeft + offset)
+			} else {
+				if (outerWidth < bodyWidth) {
+					if (this.scrollLeft < -(bodyWidth - outerWidth)) {
+						this.scrollLeft = this.scrollLeft
+					} else {
+						this.scrollLeft = Math.max(this.scrollLeft + offset, outerWidth - bodyWidth)
+					}
+				} else {
+					this.scrollLeft = 0
+				}
+			}
 		},
 
       	//点击 导航 触发
@@ -243,29 +274,40 @@
 			return meunInfo;
       	},
 
+      	//切换 标签页
       	changeNavTab(index) {
-			setTimeout(() => {
-				this.currentNavTab = index
-				const items = this.$refs.content.children
-				let width = 0
+      		setTimeout(() => {
+	      		this.currentNavTab = index
+		  		let items = this.$refs.scrollItem
 				for(let i=0;i<items.length;i++){
 					if (this.navTab[i].index === index) {
+						this.moveToView(items[i])
+
+						//动态 渲染组件
 						this.currentCacheKey = this.navTab[i].cacheKey
 						this.currentTabComponent = resolve => require(['../views/'+this.navTab[i].path], resolve)
+
 						break;
 					}
-					width += items[i].clientWidth
 				}
-				const scrollWidth  = this.$refs.scroll.clientWidth
-				const tabListWidth = this.$refs.content.clientWidth
-				const minTranslate = Math.min(0, scrollWidth - tabListWidth)
-				const middleTranslate = scrollWidth / 2
+			},5);
+		},
 
-				let translate = middleTranslate - width
-				translate = Math.max(minTranslate, Math.min(0, translate))
-				this.bs.scrollTo(translate, 0,100)
-			}, 10)
+		//跳转到指定的标签页
+		moveToView(tag) {
+      		const outerWidth = this.$refs.scrollWrapper.offsetWidth
+			const bodyWidth = this.$refs.scrollContainer.offsetWidth
+			if (bodyWidth <= outerWidth){
+				this.scrollLeft = 0
+			} else if (tag.offsetLeft < -this.scrollLeft) {
+				// 标签在可视区域左侧
+				this.scrollLeft = -tag.offsetLeft
+			} else if (tag.offsetLeft < -this.scrollLeft || tag.offsetLeft + tag.offsetWidth >= -this.scrollLeft + outerWidth) {
+				// 标签在可视区域右侧
+				this.scrollLeft = -(tag.offsetLeft - (outerWidth - tag.offsetWidth))
+			}
 		}
+
     }
   };
 </script>
@@ -281,13 +323,12 @@
 	.el-breadcrumb__separator{color:#606266}
 	.el-breadcrumb__inner.is-link, .el-breadcrumb__inner a{font-weight:normal}
 
-	#scroll-menu{width:100%;display:flex;height:34px;line-height:34px;border-bottom:1px solid #42b983;border-top:1px solid #42b983;}
-	#scroll-menu-prev,#scroll-menu-next{width:30px;text-align:center;flex:none;cursor:pointer;}
+	#scroll-menu{width:100%;display:flex;height:36px;line-height:36px;border-bottom:1px solid #42b983;border-top:1px solid #42b983;}
+	#scroll-menu-prev,#scroll-menu-next,#scroll-menu .el-dropdown{width:36px;text-align:center;flex:none;cursor:pointer;}
 	#scroll-menu-prev{border-right:1px solid #42b983;}
-	#scroll-menu-next{border-left:1px solid #42b983;}
-	.horizontal-container{flex:auto;overflow:hidden;margin:0px 6px}
-	.horizontal-container .scroll-wrapper{width:100%;white-space:nowrap;overflow:hidden}
-	.horizontal-container .scroll-wrapper .scroll-content{display:inline-block}
-	.horizontal-container .scroll-wrapper .scroll-item{display:inline-block;padding:0 5px;}
-	.horizontal-container .scroll-wrapper .scroll-item .el-tag{cursor:pointer;}
+	#scroll-menu-next,#scroll-menu .el-dropdown{border-left:1px solid #42b983;}
+	.scroll-wrapper{flex:auto;margin:0px 6px;position: relative;overflow:hidden;}
+	.scroll-container{position:absolute;white-space: nowrap;transition: left .3s ease;}
+	.scroll-item{display:inline-block;padding:0px 5px;}
+	.scroll-item .el-tag{cursor:pointer;}
 </style>
